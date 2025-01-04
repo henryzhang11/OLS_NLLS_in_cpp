@@ -2,7 +2,7 @@
 
 #include "linear_regression.h"
 
-#include <eigen3/Eigen/Dense>
+#include <Eigen/Dense>
 #include <vector>
 #include <set>
 #include <tuple>
@@ -93,15 +93,7 @@ double LinearRegression::f_statistic(const std::set<int>& all_features, const st
 
     // Compute F-statistic
     int q = p_all - p_relevant;
-    double F = ((RSS0 - RSS1) / q) / (RSS1 / (n - p_all - 1));
-
-    // Define F-distribution with degrees of freedom q and (n - p_all - 1)
-    boost::math::fisher_f dist(q, n - p_all - 1);
-
-    // Compute the CDF probability
-    double p_value = 1.0 - boost::math::cdf(dist, F);
-
-    return p_value;
+    return ((RSS0 - RSS1) / q) / (RSS1 / (n - p_all - 1));
 }
 
 // Calculate R^2 and RSE.

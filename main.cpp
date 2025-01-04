@@ -1,59 +1,88 @@
-// main.cpp
-
 #include "linear_regression.h"
-#include <eigen3/Eigen/Dense>
+#include <Eigen/Dense>
+#include <fstream>
+#include <sstream>
 #include <vector>
-#include <set>
 #include <iostream>
 
-int main() {
-    try {
-        // Sample data
-        Eigen::MatrixXd X_input(5, 2);
-        X_input << 1, 2,
-                   2, 3,
-                   3, 4,
-                   4, 5,
-                   5, 6;
-        Eigen::VectorXd Y_input(5);
-        Y_input << 2, 3, 5, 7, 11;
+void loadCSV(const std::string& filename, Eigen::MatrixXd& X, Eigen::VectorXd& Y) {
+    std::ifstream file(filename);
+    std::vector<std::vector<double>> data;
+    std::string line, cell;
 
-        // Initialize LinearRegression
-        LinearRegression lr(X_input, Y_input);
+    // Skip the first line (header)
+    std::getline(file, line); // This reads the header line and ignores it.
 
-        // Fit the model
-        Eigen::VectorXd beta = lr.fit(X_input, Y_input);
-        std::cout << "Coefficients:\n" << beta << std::endl;
+    while (std::getline(file, line)) {
+        std::stringstream lineStream(line);
+        std::vector<double> row;
 
-        // Compute standard tests
-        auto [R2, RSE] = lr.standard_tests();
-        std::cout << "R^2: " << R2 << ", RSE: " << RSE << std::endl;
-
-        // Define feature sets for F-statistic
-        std::set<int> all_features = {0, 1}; // Assuming 0 and 1 are feature indices
-        std::set<int> relevant_features = {0};
-
-        // Compute F-statistic
-        double p_value = lr.f_statistic(all_features, relevant_features);
-        std::cout << "F-statistic p-value: " << p_value << std::endl;
-
-        // Predict with new samples
-        std::vector<std::vector<double>> new_samples = {
-            {6, 7},
-            {7, 8}
-        };
-        double alpha = 0.05;
-        auto predictions = lr.predict(new_samples, alpha);
-        for (size_t i = 0; i < predictions.size(); ++i) {
-            std::cout << "Sample " << i+1 << ": [" 
-                      << std::get<0>(predictions[i]) << ", " 
-                      << std::get<1>(predictions[i]) << "]\n";
+        while (std::getline(lineStream, cell, ',')) {
+            row.push_back(std::stod(cell));
         }
+        data.push_back(row);
     }
-    catch (const std::exception& e) {
-        std::cerr << "An error occurred: " << e.what() << std::endl;
+
+    int rows = data.size();
+    int cols = data[0].size() - 1; // Last column is the response vector
+
+    X = Eigen::MatrixXd(rows, cols);
+    Y = Eigen::VectorXd(rows);
+
+    for (int i = 0; i < rows; ++i) {
+        for (int j = 0; j < cols; ++j) {
+            X(i, j) = data[i][j];
+        }
+        Y(i) = data[i][cols]; // Last column is the response
     }
-    
-    return 0;
 }
 
+int main() {
+    // Load data from CSV
+    Eigen::MatrixXd X;
+    Eigen::VectorXd Y;
+    loadCSV("train_data.csv", X, Y);
+
+    // Create LinearRegression object
+    LinearRegression lr(X, Y);
+
+    // Fit the model
+    Eigen::VectorXd beta = lr.fit(X, Y);
+    std::cout << "Fitted Coefficients (Beta):\n" << beta << std::endl;
+
+    // Perform standard tests (R^2 and RSE)
+    auto [r_squared, rse] = lr.standard_tests();
+    std::cout << "R^2: " << r_squared << ", RSE: " << rse << std::endl;
+
+	// Perform f tests for all variables
+	std::set<int> all_variables;
+	for (int i = 0; i < X.cols(); ++i) {
+		all_variables.insert(i);
+	}
+	for (int i = 0; i < X.cols(); ++i) {
+		std::set<int> selected_variables;
+		for (int j = 0; j < X.cols(); ++j) {
+			if (j != i) {
+				selected_variables.insert(j);
+			}
+		}
+		std::cout << "f-statitic of varibale " << i << " equals " << lr.f_statistic(all_variables, selected_variables) << std::endl;
+	}
+    // Predict with new samples
+	Eigen::MatrixXd X_test;
+	Eigen::VectorXd y_test;
+	loadCSV("test_data.csv", X_test, y_test);	    
+	std::vector<std::vector<double>> samples;
+	std::vector<double> sample;
+	for (int i = 0; i < X_test.cols(); ++i) {
+		sample.push_back(static_cast<double>(X_test(0, i)));
+	}
+	samples.push_back(sample); 
+	double alpha = 0.05; // 95% confidence level
+	auto predictions = lr.predict(samples, alpha);
+    for (const auto& [lower, upper] : predictions) {
+        std::cout << "Prediction Interval: [" << lower << ", " << upper << "]\n";
+    }
+
+    return 0;
+}

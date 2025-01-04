@@ -1,7 +1,7 @@
 #ifndef LINEAR_REGRESSION_H
 #define LINEAR_REGRESSION_H
 
-#include <eigen3/Eigen/Dense>
+#include <Eigen/Dense>
 #include <vector>
 #include <set>
 #include <tuple>
